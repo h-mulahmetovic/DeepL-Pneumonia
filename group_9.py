@@ -197,13 +197,10 @@ def train(model, num_epochs: int = 3):
             training_correct += (predicted == targets).sum().item()
             training_accuracy = training_correct / training_total * 100
             training_loss += outputs.shape[0] * loss.item()
-            print(training_loss)
 
         print(f'Training accuracy: {training_accuracy}%')
         training_array.append(training_accuracy)
         trainloss_array.append(training_loss/length)
-        print(trainloss_array)
-
 
         model.eval()
         
