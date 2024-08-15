@@ -133,29 +133,6 @@ test_dataset = CustomDataset(
 
 test_dataloader = DataLoader(test_dataset, shuffle=True)
 
-# Sample data (replace with your actual data)
-labels = [class_names[i] for i in class_names.keys()]
-train_label_counts = [train_dataset.labels.count(i) for i in class_names.keys()]
-validation_label_counts = [validation_dataset.labels.count(i) for i in class_names.keys()]
-test_label_counts = [test_dataset.labels.count(i) for i in class_names.keys()]
-
-# X locations for the groups
-x = np.arange(len(labels))
-
-# Plotting stacked bars
-plt.figure(figsize=(12, 8))
-plt.bar(x, train_label_counts, label='Train Dataset')
-plt.bar(x, validation_label_counts, bottom=train_label_counts, label='Validation Dataset')
-plt.bar(x, test_label_counts, bottom=np.array(train_label_counts) + np.array(validation_label_counts), label='Test Dataset')
-
-plt.xlabel('Label')
-plt.ylabel('Count')
-plt.title('Distribution of Labels in Train, Validation, and Test Datasets')
-plt.xticks(x, labels, rotation=45, ha='right')
-plt.legend()
-plt.tight_layout()
-plt.show()
-
 class group_9(nn.Module):
     def __init__(self):
         super(group_9, self).__init__()
@@ -196,16 +173,14 @@ optimizer = optim.SGD(model.parameters(), lr=0.001)
 model.to(device)
 
 
-from tqdm.notebook import tqdm
-import time
-pbar = None
+#pbar = None
 def train(model, num_epochs: int = 3):
     for epoch in range(num_epochs):
         correct = 0
         total = 0
         model.train()
 
-        pbar = tqdm(total=len(train_dataloader), desc=f"Epoch {epoch+1}/{num_epochs}", unit="batch", leave=True)
+#        pbar = tqdm(total=len(train_dataloader), desc=f"Epoch {epoch+1}/{num_epochs}", unit="batch", leave=True)
 
         for data, targets in train_dataloader:
             data, targets = data.to(device), targets.to(device)
@@ -221,11 +196,11 @@ def train(model, num_epochs: int = 3):
             correct += (predicted == targets).sum().item()
             current_accuracy = correct / total * 100
 
-            pbar.update(1)
-            pbar.set_postfix(accuracy=f"{current_accuracy:.2f}%")
+            #pbar.update(1)
+            #pbar.set_postfix(accuracy=f"{current_accuracy:.2f}%")
 
-        pbar.close()
-        tqdm.write(f"Epoch {epoch + 1}/{num_epochs}, Training accuracy: {current_accuracy:.2f}%")
+        #pbar.close()
+        #tqdm.write(f"Epoch {epoch + 1}/{num_epochs}, Training accuracy: {current_accuracy:.2f}%")
 
 
         model.eval()
@@ -241,7 +216,7 @@ def train(model, num_epochs: int = 3):
 
         validation_accuracy = 100 * correct_validation / total_validation
         print(f'Validation accuracy: {validation_accuracy}%')
-        torch.save(model.state_dict(), f'drive/MyDrive/SDU_Data/models/model_weights_3_{epoch}.pth')
+        #torch.save(model.state_dict(), f'drive/MyDrive/SDU_Data/models/model_weights_3_{epoch}.pth')
         
         
 def test(model):
@@ -260,12 +235,12 @@ def test(model):
     print(f"Test Accuracy: {accuracy:.2f}%")
     
     
-    
 train(model=model, num_epochs=15)
 test(model=model)
 
 
 torch.save(model.state_dict(), 'group_9.pth')
+
 
 def plot_metrics(metric_name, epochs, training_array, validation_array):
     """
