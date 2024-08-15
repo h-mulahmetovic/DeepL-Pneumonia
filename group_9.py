@@ -111,15 +111,10 @@ train_dataset = CustomDataset(
 
 train_dataloader = DataLoader(train_dataset, shuffle=True)
 
-validation_transform = transforms.Compose([
-    transforms.ToTensor()
-])
-
 validation_dataset = CustomDataset(
     img_size=input_dim,
     class_names=class_names,
     path=validation_path,
-    transformations=validation_transform,
     channel_dim=channel_dim
 )
 
