@@ -15,6 +15,8 @@ from PIL import Image
 import torchvision.transforms as transforms
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 rgb = 3
 greyscale = 1
@@ -110,8 +112,7 @@ train_dataset = CustomDataset(
 train_dataloader = DataLoader(train_dataset, shuffle=True)
 
 validation_transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    transforms.ToTensor()
 ])
 
 validation_dataset = CustomDataset(
@@ -173,56 +174,68 @@ optimizer = optim.SGD(model.parameters(), lr=0.001)
 model.to(device)
 
 
-#pbar = None
 def train(model, num_epochs: int = 3):
+    training_array, validation_array = [], []
+    trainloss_array, validationloss_array = [],[]
+    guessed, target_labels = [],[]
+    
     for epoch in range(num_epochs):
-        correct = 0
-        total = 0
+        guessed = []
+        target_labels = []
+        training_correct, training_total, training_loss = 0, 0, 0
+
         model.train()
-
-#        pbar = tqdm(total=len(train_dataloader), desc=f"Epoch {epoch+1}/{num_epochs}", unit="batch", leave=True)
-
+        length = 0
         for data, targets in train_dataloader:
+            length += 1
             data, targets = data.to(device), targets.to(device)
             optimizer.zero_grad()
             outputs = model(data)
-
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
 
             _, predicted = torch.max(outputs, 1)
-            total += targets.size(0)
-            correct += (predicted == targets).sum().item()
-            current_accuracy = correct / total * 100
+            guessed.append(predicted.item())
+            target_labels.append(targets.item())
+            training_total += targets.size(0)
+            training_correct += (predicted == targets).sum().item()
+            training_accuracy = training_correct / training_total * 100
+            training_loss += outputs.shape[0] * loss.item()
+            print(training_loss)
 
-            #pbar.update(1)
-            #pbar.set_postfix(accuracy=f"{current_accuracy:.2f}%")
-
-        #pbar.close()
-        #tqdm.write(f"Epoch {epoch + 1}/{num_epochs}, Training accuracy: {current_accuracy:.2f}%")
+        print(f'Training accuracy: {training_accuracy}%')
+        training_array.append(training_accuracy)
+        trainloss_array.append(training_loss/length)
+        print(trainloss_array)
 
 
         model.eval()
-        correct_validation = 0
-        total_validation = 0
+        
+        correct_validation, total_validation = 0, 0
         with torch.no_grad():
             for data, targets in validation_dataloader:
                 data, targets = data.to(device), targets.to(device)
                 outputs = model(data)
                 _, predicted = torch.max(outputs.data, 1)
+                loss = criterion(outputs, targets)
                 total_validation += targets.size(0)
                 correct_validation += (predicted == targets).sum().item()
 
         validation_accuracy = 100 * correct_validation / total_validation
-        print(f'Validation accuracy: {validation_accuracy}%')
-        #torch.save(model.state_dict(), f'drive/MyDrive/SDU_Data/models/model_weights_3_{epoch}.pth')
         
+        validation_array.append(validation_accuracy)
+        validationloss_array.append(loss.item() * outputs.shape[0])
+        
+        print(f'Validation accuracy: {validation_accuracy}%')
+        torch.save(model.state_dict(), f'./models/model_tune_hyper_epoch_{epoch}.pth')
+    return np.array(training_array), np.array(validation_array), np.array(trainloss_array), np.array(validationloss_array)
         
 def test(model):
     model.eval()
     correct = 0
     total = 0
+    predicted_labels, actual_labels = [], []
     with torch.no_grad():
         for data, targets in test_dataloader:
             data, targets = data.to(device), targets.to(device)
@@ -230,41 +243,63 @@ def test(model):
             _, predicted = torch.max(outputs.data, 1)
             total += targets.size(0)
             correct += (predicted == targets).sum().item()
-
+            predicted_labels.append(predicted)
+            actual_labels.append(targets.item())
     accuracy = 100 * correct / total
-    print(f"Test Accuracy: {accuracy:.2f}%")
-    
-    
-train(model=model, num_epochs=15)
-test(model=model)
+    return accuracy, predicted_labels, actual_labels
 
+train_acc_arr, validation_acc_arr = train(model=model, num_epochs=3)
+test_acc, predicted_labels, actual_labels = test(model=model)
+print(f"Test accuracy: {test_acc:.2f}%")
 
 torch.save(model.state_dict(), 'group_9.pth')
 
 
-def plot_metrics(metric_name, epochs, training_array, validation_array):
+def plot_metric(metric_name, training_array, validation_array):
     """
     Plots the given metric for both training and validation data using Matplotlib.
     
     Parameters:
     - metric_name: The name of the metric to plot (e.g., 'loss' or 'accuracy').
+    - training_array: array of the loss/accuracy values for each epoch collected from training set.
+    - validation_array: array of the loss/accuracy values for each epoch collected from validation set.
     """
     
-
-    plt.plot(epochs, training_array, 'b', label='Training {metric_name}')
-    plt.plot(epochs, validation_array, 'g', label='Validation {metric_name}')
-    plt.title('Training and Validation {metric_name}' )
+                    
+    num_epochs = len(training_array) #getting the amount of epoches from an input array
+    epochs = range(1, num_epochs + 1) #sequence of epoch numbers for the plot
+    plt.plot(epochs, training_array, 'b', label=f'Training {metric_name}')
+    plt.plot(epochs, validation_array, 'g', label=f'Validation {metric_name}')
+    plt.title(f'Training and Validation {metric_name}' )
     plt.xlabel('Epochs')
-    plt.ylabel('Loss')
+    plt.ylabel(f' {metric_name}')
     plt.legend()
 
     plt.show()
+
+def show_confusion_matrix(actual_labels, predicted_labels):
+    """
+    This function prints the confusion matrix.
+    :param actual_labels: array of 1(label 'Pneumonia') and 0(label 'Healthy') given with dataset.
+    :param predicted_labels: array of 1(label 'Pneumonia') and 0(label 'Healthy') predicted by model.
+    """
+    cm = confusion_matrix(actual_labels, predicted_labels)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Greens', 
+            xticklabels=['Healthy', 'Pneumonia'], 
+            yticklabels=['Healthy', 'Pneumonia'])
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('Confusion Matrix')
+    plt.show()
     
+
     
 Training_data = np.array([1, 1, 2, 3, 5, 8, 13, 21, 34]) ## TODO: INPUT REAL NUMBERS
 Validation_data = np.array([1, 8, 28, 56, 70, 56, 28, 8, 1]) ## TODO: INPUT REAL NUMBERS
 
 epochs = range(1, 10) ## TODO: INPUT REAL NUMBERS
 
-plot_metrics('Loss', epochs, Training_data, Validation_data)
-plot_metrics('Accuracy', epochs, Training_data, Validation_data)
+plot_metric('Loss', Training_data, Validation_data)
+plot_metric('Accuracy', Training_data, Validation_data)
+show_confusion_matrix(actual_labels, predicted_labels)
